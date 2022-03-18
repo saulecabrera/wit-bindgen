@@ -29,17 +29,17 @@ fn parse_interface(s: &str) -> Result<(String, PathBuf)> {
     AppSettings::ArgRequiredElseHelp,
 ])]
 pub struct App {
-    /// A transitive imported module to the module being linked.
-    #[structopt(long = "module", short = "m", value_name = "NAME=MODULE", parse(try_from_str = parse_module), required = true, min_values = 1)]
-    pub modules: Vec<(String, PathBuf)>,
+    // /// A transitive imported module to the module being linked.
+    // #[structopt(long = "module", short = "m", value_name = "NAME=MODULE", parse(try_from_str = parse_module), required = true, min_values = 1)]
+    // pub modules: Vec<(String, PathBuf)>,
 
     /// The path to an interface definition file for an imported module.
     #[structopt(long = "interface", short = "i", value_name = "NAME=INTERFACE", parse(try_from_str = parse_interface))]
     pub interfaces: Vec<(String, PathBuf)>,
 
-    /// The name of the target profile to use for the link.
-    #[structopt(long, short = "p", value_name = "PROFILE")]
-    pub profile: String,
+    // /// The name of the target profile to use for the link.
+    // #[structopt(long, short = "p", value_name = "PROFILE")]
+    // pub profile: String,
 
     /// The path of the output linked module; defaults to replacing the given module.
     #[structopt(long, short = "o", value_name = "OUTPUT", parse(from_os_str))]
@@ -53,74 +53,78 @@ pub struct App {
 impl App {
     /// Executes the application.
     pub fn execute(self) -> Result<()> {
-        if self.modules.is_empty() {
-            bail!("at least one import module must be specified");
-        }
+
+        // if self.modules.is_empty() {
+        //     bail!("at least one import module must be specified");
+        // }
 
         let module_bytes = wat::parse_file(&self.module)
             .with_context(|| format!("failed to parse module `{}`", self.module.display()))?;
 
-        let module = Module::new(
-            self.module.file_name().unwrap().to_str().unwrap(),
-            &module_bytes,
-            [],
-        )
-        .with_context(|| format!("failed to parse module `{}`", self.module.display()))?;
 
-        let import_bytes = self
-            .modules
-            .into_iter()
-            .map(|(name, path)| {
-                if !path.is_file() {
-                    bail!(
-                        "import module `{}` does not exist as a file",
-                        path.display()
-                    );
-                }
+        // let import_bytes = self
+        //     .modules
+        //     .into_iter()
+        //     .map(|(name, path)| {
+        //         if !path.is_file() {
+        //             bail!(
+        //                 "import module `{}` does not exist as a file",
+        //                 path.display()
+        //             );
+        //         }
 
-                let bytes = wat::parse_file(&path).with_context(|| {
-                    format!("failed to parse import module `{}`", path.display())
-                })?;
+        //         let bytes = wat::parse_file(&path).with_context(|| {
+        //             format!("failed to parse import module `{}`", path.display())
+        //         })?;
 
-                Ok((name, bytes))
-            })
-            .collect::<Result<HashMap<_, _>>>()?;
+        //         Ok((name, bytes))
+        //     })
+        //     .collect::<Result<HashMap<_, _>>>()?;
 
-        let mut import_interfaces = self
+        let import_interfaces = self
             .interfaces
             .into_iter()
-            .map(|(name, path)| {
+            .map(|(_name, path)| {
                 if !path.is_file() {
                     bail!("interface file `{}` does not exist", path.display());
                 }
 
-                Ok((
-                    name,
+                Ok(
                     wit_parser::Interface::parse_file(&path).with_context(|| {
                         format!("failed to parse interface file `{}`", path.display())
                     })?,
-                ))
+                )
             })
-            .collect::<Result<HashMap<_, _>>>()?;
+            .collect::<Result<Vec<_>>>()?;
 
-        let import_modules: HashMap<&str, Module> = import_bytes
-            .iter()
-            .map(|(name, bytes)| {
-                let name = name.as_ref();
-                Ok((
-                    name,
-                    Module::new(name, bytes, import_interfaces.remove(name))?,
-                ))
-            })
-            .collect::<Result<HashMap<_, _>>>()?;
+        let module = Module::new(
+            self.module.file_name().unwrap().to_str().unwrap(),
+            &module_bytes,
+            import_interfaces
+            
+        )?;
+        // .with_context(|| format!("failed to parse module `{}`", self.module.display()))?;
+
+
+        // let import_modules: HashMap<&str, Module> = import_bytes
+        //     .iter()
+        //     .map(|(name, bytes)| {
+        //         let name = name.as_ref();
+        //         Ok((
+        //             name,
+        //             Module::new(name, bytes, import_interfaces.remove(name))?,
+        //         ))
+        //     })
+        //     .collect::<Result<HashMap<_, _>>>()?;
 
         // TODO: do something with the profile option
 
         let linker = Linker::new(Profile::new());
+        let _ = linker.dylink(&module)?;
 
-        let output = self.output.as_ref().unwrap_or(&self.module);
-        std::fs::write(output, linker.link(&module, &import_modules)?)
-            .with_context(|| format!("failed to write to output module `{}`", output.display()))?;
+        // let output = self.output.as_ref().unwrap_or(&self.module);
+        // std::fs::write(output, linker.link(&module, &import_modules)?)
+        //     .with_context(|| format!("failed to write to output module `{}`", output.display()))?;
 
         Ok(())
     }

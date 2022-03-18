@@ -7,6 +7,7 @@ mod linker;
 mod module;
 mod profile;
 mod resources;
+mod dy;
 
 pub use self::adapter::ModuleAdapter;
 pub use self::linker::Linker;

@@ -7,7 +7,7 @@ use crate::{
 };
 use anyhow::{anyhow, bail, Result};
 use petgraph::{algo::toposort, graph::NodeIndex, Graph};
-use std::collections::{hash_map::Entry, HashMap};
+use std::{collections::{hash_map::Entry, HashMap}, hash::Hasher};
 use wasmparser::{ExternalKind, FuncType, ImportSectionEntryType, Type, TypeDef};
 
 pub const CANONICAL_ABI_MODULE_NAME: &str = "canonical_abi";
@@ -397,6 +397,17 @@ impl Linker {
         let module = LinkedModule::new(&graph, needs_runtime, &self.profile)?;
 
         Ok(module.encode().finish())
+    }
+
+    /// Dynamically links modules
+    pub fn dylink(&self, module: &Module) -> Result<Vec<u8>> {
+        let dynamic_adapter = crate::dy::DyAdapter::new(&module);
+        let module = dynamic_adapter.adapt()?;
+        let bytes = module.finish();
+        let pretty = wasmprinter::print_bytes(&bytes)?;
+        std::fs::write("dyn.wat", pretty)?;
+        std::fs::write("dyn.wasm", &bytes)?;
+        Ok(bytes)
     }
 
     fn build_graph<'a>(

@@ -232,7 +232,7 @@ impl<'a> Module<'a> {
 
         module.parse()?;
 
-        module.validate()?;
+        // module.validate()?;
 
         Ok(module)
     }

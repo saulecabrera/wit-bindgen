@@ -8,7 +8,7 @@ use anyhow::Result;
 use std::collections::{BTreeMap, HashMap};
 use wasmparser::{FuncType, Type};
 
-mod call;
+pub mod call;
 
 pub const RUNTIME_MODULE_NAME: &str = "$runtime";
 pub const PARENT_MODULE_NAME: &str = "$parent";
